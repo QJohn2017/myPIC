@@ -32,6 +32,3 @@ $(BINS): $(MOD) $(SRC)
 
 clean:
 	rm $(BINS) $(MODS)
-
-play:
-	echo $(MODS)
