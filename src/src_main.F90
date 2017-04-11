@@ -1,24 +1,29 @@
 PROGRAM MYPIC
 
+USE MPI
 USE CONSTANTS
 USE FUNCSUB
 USE ROUTINES
 
 IMPLICIT NONE
 
-
+!Simple Variables
 LOGICAL								:: EXISTER,OPENER
 INTEGER								:: NUM,i,j
+
+!MPI Variables
+INTEGER								:: npes,rank,ierr
+
 
 !Global grids
 REAL									:: DT,DZ,ZMAX,ZMIN
 INTEGER								:: ZPTS,TPTS
 REAL,ALLOCATABLE,DIMENSION(:)				:: ZGRID,TGRID
-REAL,DIMENSION(21)						:: PARAMS
 
 !Input parameters
 REAL									:: TFWHM,FRAD,BETA,INTENS,T0,PHI2,PHI3,PHI4,MASS_I,PRAD,LAMBDA_0,MEAN1,MEAN2,TEMP
 INTEGER								:: NUM_I,I_STATE,NUM_E,TMOD
+REAL,DIMENSION(21)						:: PARAMS
 
 !Particles and fields
 TYPE(PARTICLE)							:: IONS,EONS
@@ -29,9 +34,16 @@ REAL,ALLOCATABLE,DIMENSION(:)				:: EFIELD,LFIELD,BFIELD !These need to be made 
 REAL									:: OMEGA_0
 CHARACTER								:: POL
 
+!Begin MPI
+!---------------------------------------------------------------------------------------------------
+CALL MPI_INIT(ierr)
+CALL MPI_COMM_SIZE(MPI_COMM_WORLD,npes,ierr)
+CALL MPI_COMM_RANK(MPI_COMM_WORLD,rank,ierr)
 
 !Startup File Check
-!----------------------------------------------------------------------------------------------------
+!---------------------------------------------------------------------------------------------------
+IF(rank == 0)THEN
+
 NUM = 10
 
 INQUIRE(FILE = 'bin/../startup.txt',EXIST = EXISTER)
@@ -60,13 +72,18 @@ ELSE
 	
 ENDIF
 
+ENDIF
 
 !Read Startup File
-!----------------------------------------------------------------------------------------------------
-CALL READER(NUM,PARAMS)
+!---------------------------------------------------------------------------------------------------
+IF(rank == 0)THEN
+	CALL READER(NUM,PARAMS)
+	CLOSE(NUM)
+ENDIF
+CALL MPI_BCAST(PARAMS,SIZE(PARAMS),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
 !Assign grids and startup values
-!----------------------------------------------------------------------------------------------------
+!---------------------------------------------------------------------------------------------------
 TPTS = 2**INT(PARAMS(1))
 ZPTS = INT(PARAMS(2))
 DT = PARAMS(3)
@@ -90,46 +107,49 @@ MEAN2 = PARAMS(20)
 TEMP = PARAMS(21)
 NUM_E = NUM_I * I_STATE
 OMEGA_0 = 2 * PI * C / LAMBDA_0
-CLOSE(1)
 
-IF(DT > (2.0 * PI / OMEGA_0))THEN
+IF(rank == 0)THEN
+	IF(DT > (2.0 * PI / OMEGA_0))THEN
 
-WRITE(*,*) 'Time step too large. Scaling to w0...'
-WRITE(*,*) 'DT is now: ',(2.0 * PI / OMEGA_0)
+		WRITE(*,*) 'Time step too large. Scaling to w0...'
+		WRITE(*,*) 'DT is now: ',(2.0 * PI / OMEGA_0)
 
-DT = (2.0 * PI / OMEGA_0)
+		DT = (2.0 * PI / OMEGA_0)
 
+	ENDIF
+	WRITE(*,*)'Inputs read'
 ENDIF
-
-WRITE(*,*)'Inputs read'
 
 !Grid Generation
 !---------------------------------------------------------------------------------------------------
-WRITE(*,*) 'The z-grid size is: ',DZ * ZPTS,'um'
-WRITE(*,*) 'The t-grid size is: ',DT * TPTS,'fs'
+IF(rank == 0)THEN
+	WRITE(*,*) 'The z-grid size is: ',DZ * ZPTS,'um'
+	WRITE(*,*) 'The t-grid size is: ',DT * TPTS,'fs'
 
-WRITE(*,*) 'Number of Output Writes: ',FLOOR(REAL(TPTS) / REAL(TMOD)) + 2
-WRITE(*,*) 'Pulse Center: ',T0 * c,'(um)'
+	WRITE(*,*) 'Number of Output Writes: ',FLOOR(REAL(TPTS) / REAL(TMOD)) + 2
+	WRITE(*,*) 'Pulse Center: ',T0 * c,'(um)'
+ENDIF
 
 ALLOCATE(TGRID(TPTS),ZGRID(ZPTS))
 
 CALL TGRIDDER(TPTS,DT,TGRID)
 CALL XYZGRIDDER(ZPTS,DZ,ZGRID)
 
-OPEN(UNIT=12,FILE='res/Tgrid.txt')
-OPEN(UNIT=13,FILE='res/Zgrid.txt')
+IF(rank == 0)THEN
+	OPEN(UNIT=12,FILE='res/Tgrid.txt')
+	OPEN(UNIT=13,FILE='res/Zgrid.txt')
 
-WRITE(12,*) TGRID
-WRITE(13,*) ZGRID
+	WRITE(12,*) TGRID
+	WRITE(13,*) ZGRID
 
-CLOSE(12)
-CLOSE(13)
+	CLOSE(12)
+	CLOSE(13)
+
+	WRITE(*,*)'Grids generated'
+ENDIF
 
 ZMAX = ZGRID(ZPTS)
 ZMIN = ZGRID(1)
-
-WRITE(*,*)'Grids generated'
-
 !Particle Generation
 !---------------------------------------------------------------------------------------------------
 ALLOCATE(IONS%FLAG(NUM_I),IONS%POS(NUM_I),IONS%VEL(NUM_I))
@@ -282,6 +302,7 @@ PRINT*,'Done Looping...'
 !WRITE(12,*)POT
 !WRITE(13,*)CDENS
 
+CALL MPI_FINALIZE(ierr)
 
 DEALLOCATE(TGRID,ZGRID)
 

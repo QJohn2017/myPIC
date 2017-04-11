@@ -1,6 +1,6 @@
 #Set Compiler and Flags
 #---------------------------------------------------------------
-FC90 = gfortran
+FC90 = mpif90
 FLAGS = -O2
 LIBS = -l lapack
 #Set directory
