@@ -1,0 +1,29 @@
+Grids:
+------------------------------------------------------------------------------------------
+12				Number of time points (2^n) n
+801				Number of Z points
+3.0				Time Resolution (fs)
+0.5				Resolution (um)
+20				Number of time steps between writes
+
+Pulse Parameters:
+------------------------------------------------------------------------------------------
+100.0 			FWHM Duration (fs)
+.8				Central Wavelength (um)
+5.0				Focal Spot Radius (um)
+10.0				Spectral Chirp Rate
+0				Intensity (W/cm^2)
+750.0			Time Offset (fs)
+0.0				Phi2 (fs^2)
+0.0				Phi3 (fs^3)
+0.0				Phi4 (fs^4)
+
+Particle Parameters:
+------------------------------------------------------------------------------------------
+1000				Number of Ions
+1				Ion Ionization State
+1836.152673		Ion Mass (m_e)
+1.0				Plasma radius (um)
+175.0			Ion Distribution Center
+150.0			Electron Distribution Center
+300				Plasma Temperature							
